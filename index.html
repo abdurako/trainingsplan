@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trainingsplan</title>
+<style>
+:root{--bg:#0f1115;--card:#1a1d24;--card2:#232834;--text:#eef0f4;--muted:#8d95a5;--accent:#4f8cff;--line:#2d3340;--today:#2a8f5e;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#f3f5f9;--card:#fff;--card2:#eef1f7;--text:#161a22;--muted:#5d6678;--accent:#2563eb;--line:#d8dde8;--today:#1f9d63;color-scheme:light}}
+:root[data-theme="dark"]{--bg:#0f1115;--card:#1a1d24;--card2:#232834;--text:#eef0f4;--muted:#8d95a5;--accent:#4f8cff;--line:#2d3340;--today:#2a8f5e}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system -ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh}
+.wrap{max-width:640px;margin:0 auto;padding:16px}
+header{text-align:center;padding:18px 12px;background:var(--card);border:1px solid var(--line);border-radius:16px;margin-bottom:16px}
+#clock{font-size:clamp(20px,5.5vw,30px);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.5px}
+.sub{color:var(--muted);font-size:13px;margin-top:4px}
+h2{margin:4px 0 14px;font-size:22px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+button{font:inherit;color:inherit;cursor:pointer}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px 10px;font-size:18px;font-weight:600;text-align:center;transition:transform .1s,border-color .15s}
+.tile:hover{border-color:var(--accent)}.tile:active{transform:scale(.97)}
+.tile.today{border-color:var(--today);box-shadow:inset 0 0 0 1px var(--today)}
+.tile small{display:block;font-weight:500;color:var(--today);font-size:12px;margin-top:4px}
+.tile.set{grid-column:1/-1;background:var(--card2)}
+.back{background:none;border:none;color:var(--accent);font-size:16px;padding:6px 0;margin-bottom:6px}
+.unit{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:10px;overflow:hidden}
+.unit>button{width:100%;background:none;border:none;text-align:left;padding:18px;font-size:18px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.unit>button span{color:var(--muted);transition:transform .2s}
+.unit.open>button span{transform:rotate(90deg)}
+.plan{display:none;padding:0 18px 18px;white-space:pre-wrap;line-height:1.55}
+.unit.open .plan{display:block}
+.empty{color:var(--muted);font-style:italic}
+details{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:10px}
+summary{padding:16px 18px;font-weight:600;font-size:17px;cursor:pointer}
+.fields{padding:0 18px 18px}
+label{display:block;margin:12px 0 6px;color:var(--muted);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+textarea{width:100%;min-height:90px;resize:vertical;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit}
+textarea:focus{outline:2px solid var(--accent);border-color:transparent}
+.row{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.btn{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.btn.danger{color:#ff6b6b}
+#saved{color:var(--today);font-size:13px;opacity:0;transition:opacity .3s}
+#saved.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><div id="clock">–</div><div class="sub">Dein Trainingsplan</div></header>
+<main id="app"></main>
+</div>
+<script>
+const DAYS=[["montag","Montag"],["dienstag","Dienstag"],["mittwoch","Mittwoch"],["donnerstag","Donnerstag"],["freitag","Freitag"],["samstag","Samstag"],["sonntag","Sonntag"]];
+const UNITS=[["e1","Einheit 1"],["e2","Einheit 2"],["ex","Extra"]];
+const JS_NAMES=["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
+const KEY="trainingsplan-v1";
+let data={};
+try{data=JSON.parse(localStorage.getItem(KEY)||"{}")||{}}catch(e){data={}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
+function get(d,u){return (data[d]&&data[d][u])||""}
+function set(d,u,v){(data[d]=data[d]||{})[u]=v;save()}
+const p=n=>String(n).padStart(2,"0");
+function tick(){const n=new Date();
+document.getElementById("clock").textContent=JS_NAMES[n.getDay()]+" "+p(n.getDate())+"."+p(n.getMonth()+1)+"."+n.getFullYear()+" "+p(n.getHours())+":"+p(n.getMinutes())+":"+p(n.getSeconds())}
+setInterval(tick,1000);tick();
+function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e}
+const app=document.getElementById("app");
+function todayId(){return DAYS[(new Date().getDay()+6)%7][0]}
+function home(){
+app.replaceChildren();
+const g=el("div","grid");
+DAYS.forEach(([id,name])=>{const b=el("button","tile"+(id===todayId()?" today":""),name);
+if(id===todayId())b.appendChild(el("small",null,"Heute"));
+b.onclick=()=>{location.hash=id};g.appendChild(b)});
+const s=el("button","tile set","⚙ Einstellungen");s.onclick=()=>{location.hash="einstellungen"};g.appendChild(s);
+app.appendChild(g)}
+function day(id){
+const name=DAYS.find(d=>d[0]===id)[1];
+app.replaceChildren();
+const b=el("button","back","‹ Zurück");b.onclick=()=>{location.hash=""};app.appendChild(b);
+app.appendChild(el("h2",null,name));
+UNITS.forEach(([u,label])=>{
+const box=el("div","unit");
+const btn=el("button",null,label);btn.appendChild(el("span",null,"›"));
+const plan=el("div","plan");const t=get(id,u).trim();
+if(t)plan.textContent=t;else{plan.classList.add("empty");plan.textContent="Noch nichts eingetragen – unter Einstellungen ergänzen."}
+btn.onclick=()=>box.classList.toggle("open");
+box.append(btn,plan);app.appendChild(box)})}
+function settings(){
+app.replaceChildren();
+const b=el("button","back","‹ Zurück");b.onclick=()=>{location.hash=""};app.appendChild(b);
+app.appendChild(el("h2",null,"Einstellungen"));
+app.appendChild(el("div","sub","Tippe auf einen Tag und bearbeite Einheit 1, Einheit 2 und Extra. Änderungen werden automatisch gespeichert."));
+const wrap=el("div");wrap.style.marginTop="14px";
+DAYS.forEach(([id,name])=>{
+const d=el("details");d.appendChild(el("summary",null,name));
+const f=el("div","fields");
+UNITS.forEach(([u,label])=>{
+f.appendChild(el("label",null,label));
+const ta=el("textarea");ta.value=get(id,u);ta.placeholder="z. B. Aufwärmen, Übungen, Sätze, Wiederholungen …";
+ta.oninput=()=>{set(id,u,ta.value);flash()};f.appendChild(ta)});
+d.appendChild(f);wrap.appendChild(d)});
+app.appendChild(wrap);
+const row=el("div","row");
+const sv=el("span",null,"✓ Gespeichert");sv.id="saved";
+const rs=el("button","btn danger","Alles zurücksetzen");
+rs.onclick=()=>{if(confirm("Wirklich alle Pläne löschen?")){data={};save();settings()}};
+row.append(rs,sv);app.appendChild(row)}
+let ft;function flash(){const s=document.getElementById("saved");if(!s)return;s.classList.add("on");clearTimeout(ft);ft=setTimeout(()=>s.classList.remove("on"),1200)}
+function route(){const h=location.hash.replace("#","");
+if(h==="einstellungen")settings();else if(DAYS.some(d=>d[0]===h))day(h);else home();window.scrollTo(0,0)}
+window.addEventListener("hashchange",route);route();
+</script>
+</body>
+</html>
